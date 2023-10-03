@@ -48,6 +48,8 @@ class EtherscanClient:
         EthereumNetwork.NEON_EVM_MAINNET: "https://neonscan.org",
         EthereumNetwork.SEPOLIA: "https://sepolia.etherscan.io",
         EthereumNetwork.ZKSYNC_V2: "https://explorer.zksync.io/",
+        EthereumNetwork.MANTLE: "https://explorer.mantle.xyz",
+        EthereumNetwork.MANTLE_TESTNET: "https://explorer.testnet.mantle.xyz",
     }
 
     NETWORK_WITH_API_URL = {
@@ -76,6 +78,8 @@ class EtherscanClient:
         EthereumNetwork.NEON_EVM_MAINNET: "https://api.neonscan.org",
         EthereumNetwork.SEPOLIA: "https://api-sepolia.etherscan.io",
         EthereumNetwork.ZKSYNC_V2: "https://block-explorer-api.mainnet.zksync.io/",
+        EthereumNetwork.MANTLE: "https://explorer.mantle.xyz/api",
+        EthereumNetwork.MANTLE_TESTNET: "https://explorer.testnet.mantle.xyz/api",
     }
     HTTP_HEADERS = {
         "User-Agent": "curl/7.77.0",
