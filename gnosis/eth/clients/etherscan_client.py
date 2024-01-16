@@ -53,6 +53,7 @@ class EtherscanClient:
         EthereumNetwork.LINEA_TESTNET: "https://goerli.lineascan.build",
         EthereumNetwork.MANTLE: "https://explorer.mantle.xyz",
         EthereumNetwork.MANTLE_TESTNET: "https://explorer.testnet.mantle.xyz",
+        EthereumNetwork.MANTLE_SEPOLIA_TESTNET: "https://explorer.sepolia.mantle.xyz/",
         EthereumNetwork.JAPAN_OPEN_CHAIN_MAINNET: "https://mainnet.japanopenchain.org",
         EthereumNetwork.JAPAN_OPEN_CHAIN_TESTNET: "https://explorer.testnet.japanopenchain.org",
         EthereumNetwork.SCROLL_SEPOLIA_TESTNET: "https://sepolia.scrollscan.dev",
