@@ -1,10 +1,10 @@
 import json
+import os
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 
-import requests
-
+from ...util.http import prepare_http_session
 from .. import EthereumNetwork
 from .contract_metadata import ContractMetadata
 
@@ -60,6 +60,10 @@ class EtherscanClient:
         EthereumNetwork.SCROLL: "https://scrollscan.com",
         EthereumNetwork.KROMA: "https://kromascan.com",
         EthereumNetwork.KROMA_SEPOLIA: "https://sepolia.kromascan.com",
+        EthereumNetwork.BLAST_SEPOLIA_TESTNET: "https://sepolia.blastscan.io",
+        EthereumNetwork.FRAXTAL_MAINNET: "https://fraxscan.com",
+        EthereumNetwork.BASE: "https://api.basescan.org/",
+        EthereumNetwork.BLAST: "https://blastscan.io",
     }
 
     NETWORK_WITH_API_URL = {
@@ -100,6 +104,10 @@ class EtherscanClient:
         EthereumNetwork.SCROLL: "https://api.scrollscan.com",
         EthereumNetwork.KROMA: "https://api.kromascan.com",
         EthereumNetwork.KROMA_SEPOLIA: "https://api-sepolia.kromascan.com",
+        EthereumNetwork.BLAST_SEPOLIA_TESTNET: "https://api-sepolia.blastscan.io",
+        EthereumNetwork.FRAXTAL_MAINNET: "https://api.fraxscan.com",
+        EthereumNetwork.BASE: "https://api.basescan.org",
+        EthereumNetwork.BLAST: "https://api.blastscan.io",
     }
     HTTP_HEADERS = {
         "User-Agent": "curl/7.77.0",
@@ -109,7 +117,9 @@ class EtherscanClient:
         self,
         network: EthereumNetwork,
         api_key: Optional[str] = None,
-        request_timeout: int = 10,
+        request_timeout: int = int(
+            os.environ.get("ETHERSCAN_CLIENT_REQUEST_TIMEOUT", 10)
+        ),
     ):
         self.network = network
         self.api_key = api_key
@@ -119,26 +129,9 @@ class EtherscanClient:
             raise EtherscanClientConfigurationProblem(
                 f"Network {network.name} - {network.value} not supported"
             )
-        self.http_session = self._prepare_http_session()
+        self.http_session = prepare_http_session(10, 100)
         self.http_session.headers = self.HTTP_HEADERS
         self.request_timeout = request_timeout
-
-    def _prepare_http_session(self) -> requests.Session:
-        """
-        Prepare http session with custom pooling. See:
-        https://urllib3.readthedocs.io/en/stable/advanced-usage.html
-        https://docs.python-requests.org/en/v1.2.3/api/#requests.adapters.HTTPAdapter
-        https://web3py.readthedocs.io/en/stable/providers.html#httpprovider
-        """
-        session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(
-            pool_connections=10,
-            pool_maxsize=100,
-            pool_block=False,
-        )
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        return session
 
     def build_url(self, path: str):
         url = urljoin(self.base_api_url, path)

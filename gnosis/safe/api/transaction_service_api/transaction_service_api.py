@@ -1,16 +1,18 @@
 import logging
-import time
+import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from eth_account.signers.local import LocalAccount
 from eth_typing import ChecksumAddress, HexStr
 from hexbytes import HexBytes
-from web3 import Web3
 
-from gnosis.eth import EthereumNetwork
+from gnosis.eth import EthereumClient, EthereumNetwork
+from gnosis.eth.utils import fast_keccak_text
 from gnosis.safe import SafeTx
 
-from .base_api import SafeAPIException, SafeBaseAPI
+from ..base_api import SafeAPIException, SafeBaseAPI
+from .transaction_service_messages import get_delegate_message
+from .transaction_service_tx import TransactionServiceTx
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +36,20 @@ class TransactionServiceApi(SafeBaseAPI):
         EthereumNetwork.ZKSYNC_MAINNET: "https://safe-transaction-zksync.safe.global",
     }
 
+    def __init__(
+        self,
+        network: EthereumNetwork,
+        ethereum_client: Optional[EthereumClient] = None,
+        base_url: Optional[str] = None,
+        request_timeout: int = int(
+            os.environ.get("SAFE_TRANSACTION_SERVICE_REQUEST_TIMEOUT", 10)
+        ),
+    ):
+        super().__init__(network, ethereum_client, base_url, request_timeout)
+
     @classmethod
     def create_delegate_message_hash(cls, delegate_address: ChecksumAddress) -> str:
-        totp = int(time.time()) // 3600
-        hash_to_sign = Web3.keccak(text=delegate_address + str(totp))
-        return hash_to_sign
+        return fast_keccak_text(get_delegate_message(delegate_address))
 
     @classmethod
     def data_decoded_to_text(cls, data_decoded: Dict[str, Any]) -> Optional[str]:
@@ -115,7 +126,7 @@ class TransactionServiceApi(SafeBaseAPI):
 
     def get_safe_transaction(
         self, safe_tx_hash: Union[bytes, HexStr]
-    ) -> Tuple[SafeTx, Optional[HexBytes]]:
+    ) -> Tuple[TransactionServiceTx, Optional[HexBytes]]:
         """
         :param safe_tx_hash:
         :return: SafeTx and `tx-hash` if transaction was executed
@@ -133,7 +144,8 @@ class TransactionServiceApi(SafeBaseAPI):
             logger.warning(
                 "EthereumClient should be defined to get a executable SafeTx"
             )
-        safe_tx = SafeTx(
+        safe_tx = TransactionServiceTx(
+            result["proposer"],
             self.ethereum_client,
             result["safe"],
             result["to"],
@@ -215,6 +227,7 @@ class TransactionServiceApi(SafeBaseAPI):
         self,
         safe_address: ChecksumAddress,
         delegate_address: ChecksumAddress,
+        delegator_address: ChecksumAddress,
         label: str,
         signer_account: LocalAccount,
     ) -> bool:
@@ -223,12 +236,11 @@ class TransactionServiceApi(SafeBaseAPI):
         add_payload = {
             "safe": safe_address,
             "delegate": delegate_address,
+            "delegator": delegator_address,
             "signature": signature.signature.hex(),
             "label": label,
         }
-        response = self._post_request(
-            f"/api/v1/safes/{safe_address}/delegates/", add_payload
-        )
+        response = self._post_request("/api/v1/delegates/", add_payload)
         if not response.ok:
             raise SafeAPIException(f"Cannot add delegate: {response.content}")
         return True
@@ -274,6 +286,21 @@ class TransactionServiceApi(SafeBaseAPI):
         )
         if not response.ok:
             raise SafeAPIException(f"Error posting transaction: {response.content}")
+        return True
+
+    def delete_transaction(self, safe_tx_hash: str, signature: str) -> bool:
+        """
+
+        :param safe_tx_hash: hash of eip712 see in transaction_service_messages.py generate_remove_transaction_message function
+        :param signature: signature of safe_tx_hash by transaction proposer
+        :return:
+        """
+        payload = {"safeTxHash": safe_tx_hash, "signature": signature}
+        response = self._delete_request(
+            f"/api/v1/multisig-transactions/{safe_tx_hash}/", payload
+        )
+        if not response.ok:
+            raise SafeAPIException(f"Error deleting transaction: {response.content}")
         return True
 
     def post_message(
